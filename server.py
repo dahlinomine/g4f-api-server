@@ -1,7 +1,7 @@
 """
 g4f OpenAI-compatible API server for CZAR agent fleet.
-Forces Yqcloud as default provider — no HAR files or browser cookies needed.
-Replaces ChatAnywhere with zero-cost free providers.
+No HAR files, no browser cookies — pure free providers only.
+Replaces ChatAnywhere with zero-cost, no-auth providers.
 """
 import os
 import logging
@@ -14,19 +14,19 @@ logger = logging.getLogger(__name__)
 
 PORT = int(os.environ.get("PORT", 8080))
 
-# Force Yqcloud as the default provider for ALL requests.
-# Yqcloud: no auth, no HAR files, supports multi-turn conversations.
-# Without this, g4f tries Copilot/Bing which require browser cookies → Railway 422/401 errors.
-AppConfig.provider = "Yqcloud"
-logger.info("Default provider locked to: Yqcloud (no-auth, multi-turn)")
-logger.info("Fallback order if Yqcloud fails: PollinationsAI → Blackbox → DeepInfra")
+# PollinationsAI: confirmed working, no auth, <2s response, model: openai-fast
+# Yqcloud was timing out (>30s) on Railway as of 2026-03-23.
+# Without this, g4f routes to Copilot/Bing which need HAR cookies → 422/401 on Railway.
+AppConfig.provider = "PollinationsAI"
+logger.info("Default provider locked to: PollinationsAI (no-auth, fast)")
+logger.info("Fallback chain: Qwen_Qwen_3 → DeepInfra → Groq")
 
-# Preferred no-auth providers for reference (used when model-specific routing kicks in)
+# No-auth provider chain (reference — AppConfig.provider handles default routing)
 PROVIDER_CHAIN = [
-    g4f.Provider.Yqcloud,         # Primary: no auth, multi-turn, reliable
-    g4f.Provider.PollinationsAI,  # Fallback 1: gpt-4o-mini, no auth
-    g4f.Provider.Blackbox,        # Fallback 2: gpt-4o, fast
-    g4f.Provider.DeepInfra,       # Fallback 3: deepseek-r1, llama-4-scout
+    g4f.Provider.PollinationsAI,  # Primary: no auth, <2s, model: openai-fast
+    g4f.Provider.Qwen_Qwen_3,    # Fallback 1: qwen-3-235b, 32K ctx, no auth
+    g4f.Provider.DeepInfra,      # Fallback 2: MiniMax-M2.5, no auth
+    g4f.Provider.Groq,           # Fallback 3: gpt-oss-120b, no auth
 ]
 
 if __name__ == "__main__":
